@@ -28,6 +28,7 @@ func check200(url string, channelID string) {
 
 func CheckEndpoint(channelID string) {
 	endpoint := "https://hireable.careerhotshot.com/api_feeds/sites"
+	sites_exceptions := []string{"http://jobsandjobs.com", "https://searchprojobs.com", "http://search.topdirectjobs.com", "https://newjobfast.com/", "http://jobsandmore.com", "https://jobs.idropnews.com/"}
 	
 	// call API
 	body, errorMessage := ApiRequest(endpoint)
@@ -43,6 +44,20 @@ func CheckEndpoint(channelID string) {
 
 	// go through each job and check if the request is 200
 	for _, job := range jsonResults {
+		// check if the job is in the exceptions list
+		if contains(sites_exceptions, job.URL) {
+			continue
+			
+		}
 		check200(job.URL, channelID)
 	}
+}
+
+func contains(s []string, str string) bool {
+    for _, v := range s {
+        if v == str {
+            return true
+        }
+    }
+    return false
 }

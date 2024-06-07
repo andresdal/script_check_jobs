@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"neptune/check_jobs/jobs"
 	"os"
 	"strings"
@@ -44,19 +43,13 @@ func main() {
 	loadEnv()
 	c = cache.New(24*time.Hour, 1*time.Hour)
 	channelID := os.Getenv("CHANNEL_ID")
-	if channelID == "" {
-		fmt.Println("SLACK_TOKEN environment variable not set")
-		return
-	}
 	
-	// go workerFetchJobs(5 * time.Minute, channelID)
-	// go workerCheckJobsCount(12 * time.Hour, c, channelID)
-	// go workerCheckEndpoints(1 * time.Hour, channelID)
+	go workerFetchJobs(5 * time.Minute, channelID)
+	go workerCheckJobsCount(12 * time.Hour, c, channelID)
+	go workerCheckEndpoints(1 * time.Hour, channelID)
 
-	// // Mantener el programa en ejecución indefinidamente
-	// select {}
-
-	jobs.FetchJobs(channelID)
+	// Mantener el programa en ejecución indefinidamente
+	select {}
 }
 
 func loadEnv() {
@@ -75,7 +68,7 @@ func loadEnv() {
         key, value := parts[0], parts[1]
         value = strings.Trim(value, "\"") // remove quotes if present
         os.Setenv(key, value)
-		fmt.Printf("Set %s=%s\n", key, value)
+		//fmt.Printf("Set %s=%s\n", key, value)
     }
 
     if err := scanner.Err(); err != nil {
