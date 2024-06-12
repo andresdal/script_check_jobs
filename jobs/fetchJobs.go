@@ -124,16 +124,20 @@ func convertJsonWalla(body []byte) ([]JobResult, string) {
 }
 
 func checkAPIHirable(apiUrl string, channelID string) {
+	gralErrorMessage := "FetchJobs Hireable error:"
+
 	// Realizar la solicitud HTTP GET 
 	body, errorMessage := ApiRequest(apiUrl)
 	if body == nil{
-		slack_utils.SendMessage(errorMessage, channelID)
+		slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		return
 	}
 
 	// Convertir el resultado a un objeto JSON
 	jsonResults, errorMessage := ConvertJsonHireable(body)
 	if jsonResults == nil {
-		slack_utils.SendMessage(errorMessage, channelID)
+		slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		return
 	}
 
 	// Seleccionar un link aleatorio y seguirlo
@@ -143,8 +147,9 @@ func checkAPIHirable(apiUrl string, channelID string) {
 
 	if decodedJobURL.URL == "" {
 		slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		return
 	}
-
+	
 	// Hacer una solicitud al URL final
 	errorMessage = finalURLrequest(decodedJobURL)
 	if errorMessage != "" {
@@ -157,16 +162,20 @@ func checkAPIHirable(apiUrl string, channelID string) {
 }
 
 func checkAPIWalla(apiUrl string, channelID string) {
+	gralErrorMessage := "FetchJobs Walla error:"
+
 	// Realizar la solicitud HTTP GET 
 	body, errorMessage := ApiRequest(apiUrl)
 	if body == nil{
-		slack_utils.SendMessage(errorMessage, channelID)
+		slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		return
 	}
 
 	// Convertir el resultado a un objeto JSON
 	jsonResults, errorMessage := convertJsonWalla(body)
 	if jsonResults == nil {
-		slack_utils.SendMessage(errorMessage, channelID)
+		slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		return
 	}
 
 	// Seleccionar un link aleatorio y seguirlo
@@ -176,6 +185,7 @@ func checkAPIWalla(apiUrl string, channelID string) {
 
 	if decodedJobURL.URL == "" {
 		slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		return
 	}
 
 	// Hacer una solicitud al URL final

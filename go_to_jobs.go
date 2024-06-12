@@ -26,7 +26,7 @@ func workerCheckJobsCount(interval time.Duration, c *cache.Cache, channelID stri
 	defer ticker.Stop()
 
 	for range ticker.C {
-		jobs.CheckJobCounts(c, channelID)
+		jobs.CheckJobsCounts(c, channelID)
 	}
 }
 
