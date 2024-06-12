@@ -2,12 +2,10 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"neptune/check_jobs/jobs"
 	"os"
 	"strings"
 	"time"
-	"github.com/go-redis/redis"
 	"github.com/patrickmn/go-cache"
 )
 
@@ -43,33 +41,14 @@ func workerCheckEndpoints(interval time.Duration, channelID string) {
 func main() {
 	loadEnv()
 	c = cache.New(24*time.Hour, 1*time.Hour)
-	//channelID := os.Getenv("CHANNEL_ID")
-
-	//config redis
-	rdb := redis.NewClient(&redis.Options{
-        Addr:     "localhost:6379", // Dirección del servidor Redis
-        Password: "",               // Contraseña, si no tienes una, déjala vacía
-        DB:       0,                // Base de datos a usar
-    })
-
-    // Prueba la conexión
-	err := rdb.Set("key", "value", 0*time.Second).Err()
-    if err != nil {
-        panic(err)
-    }
-
-	val, err := rdb.Get("key").Result()
-    if err != nil {
-        panic(err)
-    }
-    fmt.Println("key", val)
+	channelID := os.Getenv("CHANNEL_ID")
 	
-	// go workerFetchJobs(5 * time.Minute, channelID)
-	// go workerCheckJobsCount(12 * time.Hour, c, channelID)
-	// go workerCheckEndpoints(1 * time.Hour, channelID)
+	go workerFetchJobs(5 * time.Minute, channelID)
+	go workerCheckJobsCount(12 * time.Hour, c, channelID)
+	go workerCheckEndpoints(1 * time.Hour, channelID)
 
-	// // Mantener el programa en ejecución indefinidamente
-	// select {}
+	// Mantener el programa en ejecución indefinidamente
+	select {}
 }
 
 func loadEnv() {

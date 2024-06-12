@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	//"github.com/go-redis/redis"
+	"github.com/go-redis/redis"
 )
 
 // Estructura para decodificar el JSON
@@ -124,20 +124,28 @@ func convertJsonWalla(body []byte) ([]JobResult, string) {
 	return jobResults, ""
 }
 
-func checkAPIHirable(apiUrl string, channelID string) {
+func checkAPIHirable(apiUrl string, channelID string, redis_client *redis.Client) {
 	gralErrorMessage := "FetchJobs Hireable error:"
 
 	// Realizar la solicitud HTTP GET 
 	body, errorMessage := ApiRequest(apiUrl)
 	if body == nil{
-		slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		result, _ := redis_client.Get("check_api_hirable").Result()
+		if result != "error" {
+			redis_client.Set("check_api_hirable", "error", 0)
+			slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		}
 		return
 	}
 
 	// Convertir el resultado a un objeto JSON
 	jsonResults, errorMessage := ConvertJsonHireable(body)
 	if jsonResults == nil {
-		slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		result, _ := redis_client.Get("check_api_hirable").Result()
+		if result != "error" {
+			redis_client.Set("check_api_hirable", "error", 0)
+			slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		}
 		return
 	}
 
@@ -147,14 +155,30 @@ func checkAPIHirable(apiUrl string, channelID string) {
 	genericErrorMessage := "Unable to follow job link (Hirable): " + randomJob.URL
 
 	if decodedJobURL.URL == "" {
-		slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		result, _ := redis_client.Get("check_api_hirable").Result()
+		if result != "error" {
+			redis_client.Set("check_api_hirable", "error", 0)
+			slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		}
 		return
 	}
 	
 	// Hacer una solicitud al URL final
 	errorMessage = finalURLrequest(decodedJobURL)
 	if errorMessage != "" {
-		slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		result, _ := redis_client.Get("check_api_hirable").Result()
+		if result != "error" {
+			redis_client.Set("check_api_hirable", "error", 0)
+			slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		}
+		return
+	}
+
+	// if there is no error
+	result, _ := redis_client.Get("check_api_hirable").Result()
+	if result == "error" {
+		redis_client.Set("check_api_hirable", "solved", 0)
+		slack_utils.SendMessage("FetchJobs Hireable error SOLVED", channelID)
 	}
 
 	// LOG
@@ -162,20 +186,28 @@ func checkAPIHirable(apiUrl string, channelID string) {
 	// slack_utils.SendMessage("Script ejecutado exitosamente. Se accedió al URL final: "+decodedJobURL.URL, channelID)
 }
 
-func checkAPIWalla(apiUrl string, channelID string) {
+func checkAPIWalla(apiUrl string, channelID string, redis_client *redis.Client) {
 	gralErrorMessage := "FetchJobs Walla error:"
 
 	// Realizar la solicitud HTTP GET 
 	body, errorMessage := ApiRequest(apiUrl)
 	if body == nil{
-		slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		result, _ := redis_client.Get("check_api_walla").Result()
+		if result != "error" {
+			redis_client.Set("check_api_walla", "error", 0)
+			slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		}
 		return
 	}
 
 	// Convertir el resultado a un objeto JSON
 	jsonResults, errorMessage := convertJsonWalla(body)
 	if jsonResults == nil {
-		slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		result, _ := redis_client.Get("check_api_walla").Result()
+		if result != "error" {
+			redis_client.Set("check_api_walla", "error", 0)
+			slack_utils.SendMessage(gralErrorMessage + "\n" + errorMessage, channelID)
+		}
 		return
 	}
 
@@ -185,14 +217,30 @@ func checkAPIWalla(apiUrl string, channelID string) {
 	genericErrorMessage := "Unable to follow job link (Walla): " + randomJob.URL
 
 	if decodedJobURL.URL == "" {
-		slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		result, _ := redis_client.Get("check_api_walla").Result()
+		if result != "error" {
+			redis_client.Set("check_api_walla", "error", 0)
+			slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		}
 		return
 	}
 
 	// Hacer una solicitud al URL final
 	errorMessage = finalURLrequest(decodedJobURL)
 	if errorMessage != "" {
-		slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		result, _ := redis_client.Get("check_api_walla").Result()
+		if result != "error" {
+			redis_client.Set("check_api_walla", "error", 0)
+			slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+		}
+		return
+	}
+
+	// if there is no error
+	result, _ := redis_client.Get("check_api_walla").Result()
+	if result == "error" {
+		redis_client.Set("check_api_walla", "solved", 0)
+		slack_utils.SendMessage("FetchJobs Walla error SOLVED", channelID)
 	}
 
 	// LOG
@@ -201,6 +249,12 @@ func checkAPIWalla(apiUrl string, channelID string) {
 }
 
 func FetchJobs(channelID string) {
+	redis_client := redis.NewClient(&redis.Options{
+        Addr:     "localhost:6379", // Dirección del servidor Redis
+        Password: "",               // Contraseña, si no tienes una, déjala vacía
+        DB:       0,                // Base de datos a usar
+    })
+
 	rand.Seed(time.Now().UnixNano())
 
 	keyword := keywords[rand.Intn(len(keywords))]
@@ -223,6 +277,6 @@ func FetchJobs(channelID string) {
 		url.QueryEscape(keyword), url.QueryEscape(location), api_token2)
 
 
-	checkAPIHirable(apiUrlHirable, channelID)
-	checkAPIWalla(apiUrlWalla, channelID)
+	checkAPIHirable(apiUrlHirable, channelID, redis_client)
+	checkAPIWalla(apiUrlWalla, channelID, redis_client)
 }
