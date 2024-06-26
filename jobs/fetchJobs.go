@@ -12,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 	"github.com/go-redis/redis"
 )
 
@@ -220,7 +219,7 @@ func checkAPIWalla(apiUrl string, channelID string, redis_client *redis.Client) 
 		result, _ := redis_client.Get("check_api_walla").Result()
 		if result != "error" {
 			redis_client.Set("check_api_walla", "error", 0)
-			slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+			slack_utils.SendMessage(gralErrorMessage + "\n" + genericErrorMessage + "\n" + errorMessage, channelID)
 		}
 		return
 	}
@@ -255,20 +254,12 @@ func FetchJobs(channelID string) {
         DB:       0,                // Base de datos a usar
     })
 
-	rand.Seed(time.Now().UnixNano())
-
 	keyword := keywords[rand.Intn(len(keywords))]
 	location := locations[rand.Intn(len(locations))]
 	email := emails[rand.Intn(len(emails))]
 
 	var api_token1 = os.Getenv("API_TOKEN1")
 	var api_token2 = os.Getenv("API_TOKEN2")
-	if api_token1 == "" {
-		fmt.Println("api_token1 environment variable not set")
-	}
-	if api_token2 == "" {
-		fmt.Println("api_token2 environment variable not set")
-	}
 
 	apiUrlHirable := fmt.Sprintf("https://hireable.careerhotshot.com/search/?q=%s&l=%s&siteid=jobsclassic&jpp=150&email=%s&token=%s&from=sites&campaign=null&m_list_id=null",
 		url.QueryEscape(keyword), url.QueryEscape(location), url.QueryEscape(email), api_token1)

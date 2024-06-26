@@ -38,6 +38,24 @@ func workerCheckEndpoints(interval time.Duration, channelID string) {
 	}
 }
 
+func workerCheckDiffSource(interval time.Duration, channelID string) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		jobs.CheckDiffSource(channelID)
+	}
+}
+
+func workerCheckAvgDbCounts(interval time.Duration, channelID string) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		jobs.CheckAvgDbCounts(channelID)
+	}
+}
+
 func main() {
 	loadEnv()
 	c = cache.New(24*time.Hour, 1*time.Hour)
@@ -46,6 +64,8 @@ func main() {
 	go workerFetchJobs(5 * time.Minute, channelID)
 	go workerCheckJobsCount(12 * time.Hour, c, channelID)
 	go workerCheckEndpoints(1 * time.Hour, channelID)
+	//go workerCheckDiffSource(3 * time.Hour, channelID)	
+	go workerCheckAvgDbCounts(1 * time.Hour, channelID)
 
 	// Mantener el programa en ejecución indefinidamente
 	select {}
