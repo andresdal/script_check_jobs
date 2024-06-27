@@ -18,17 +18,17 @@ func CheckAvgDbCounts(channelID string) {
         DB:       0,                // Base de datos a usar
     })
 	
-	// PostgreSQL connection string
-	db_user := os.Getenv("PG_DB_USERNAME")
-	db_name := os.Getenv("PG_DB_DATABASE")
-	db_password := os.Getenv("PG_DB_PASSWORD")
-	db_host := os.Getenv("PG_DB_HOST")
-	db_port := os.Getenv("PG_DB_PORT")
+	// PostgreSQL HIREABLE connection
+	db_user_hir := os.Getenv("POSTGRES_USER_HIR")
+	db_name_hir := os.Getenv("POSTGRES_DATABASE_HIR")
+	db_password_hir := os.Getenv("POSTGRES_PASSWORD_HIR")
+	db_host_hir := os.Getenv("POSTGRES_HOST_HIR")
+	db_port_hir := os.Getenv("POSTGRES_PORT_HIR")
 
-	connStr := "user=" + db_user + " dbname=" + db_name + " password=" + db_password + " host=" + db_host + " port=" + db_port + " sslmode=disable"
+	connStrHir := "user=" + db_user_hir + " dbname=" + db_name_hir + " password=" + db_password_hir + " host=" + db_host_hir + " port=" + db_port_hir + " sslmode=disable"
 
 	// Open a connection to the database
-	db, err := sql.Open("postgres", connStr)
+	db, err := sql.Open("postgres", connStrHir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func CheckAvgDbCounts(channelID string) {
 
 	// Variable to store the query result
 	var porcentaje_variacion float64 
-	var porcentaje_limite_aceptable float64 = 90.0
+	var porcentaje_limite_aceptable float64 = 30.0
 
 	// Execute the query and scan the result into the count variable
 	err = db.QueryRow(query).Scan(&porcentaje_variacion)
@@ -71,20 +71,62 @@ func CheckAvgDbCounts(channelID string) {
 	}
 
 	genericErrorMessage := "CheckAvgDbCounts error:"
-	errorMessage := fmt.Sprintf("El porcentaje de variación de clicks (%2.f) es menor al límite aceptable (%2.f).", porcentaje_variacion, porcentaje_limite_aceptable)
+	errorMessage := fmt.Sprintf("El porcentaje de variación de clicks (%.2f) es menor al límite aceptable (%.2f).", porcentaje_variacion, porcentaje_limite_aceptable)
 
-	if(porcentaje_variacion < porcentaje_limite_aceptable) {
-		result, _ := redis_client.Get("check_avg_db_counts").Result()
+	slack_utils.SendMessage("HIREABLE " + genericErrorMessage + "\n" + errorMessage, channelID)
+
+	if(porcentaje_variacion < porcentaje_limite_aceptable) { // error
+		result, _ := redis_client.Get("check_avg_db_counts_hir").Result()
 		if result != "error" {
-			redis_client.Set("check_avg_db_counts", "error", 0)
-			slack_utils.SendMessage(genericErrorMessage + "\n" + errorMessage, channelID)
+			redis_client.Set("check_avg_db_counts_hir", "error", 0)
+			slack_utils.SendMessage("HIREABLE " + genericErrorMessage + "\n" + errorMessage, channelID)
 		}
-		return
+	} else { // ok
+		result, _ := redis_client.Get("check_avg_db_counts_hir").Result()
+		if result == "error" {
+			redis_client.Set("check_avg_db_counts_hir", "solved", 0)
+			slack_utils.SendMessage("Hireable CheckAvgDbCounts error SOLVED", channelID)
+		}
 	}
 
-	// if there is no error
-	result, _ := redis_client.Get("check_avg_db_counts").Result()
-	if result == "error" {
-		redis_client.Set("check_avg_db_counts", "solved", 0)
+	// PostgreSQL WALLA connection
+	db_user_wal := os.Getenv("POSTGRES_USER_WALLA")
+	db_name_wal := os.Getenv("POSTGRES_DATABASE_WALLA")
+	db_password_wal := os.Getenv("POSTGRES_PASSWORD_WALLA")
+	db_host_wal := os.Getenv("POSTGRES_HOST_WALLA")
+	db_port_wal := os.Getenv("POSTGRES_PORT_WALLA")
+
+	connStrWalla := fmt.Sprintf("user=%s dbname=%s password=%s host=%s port=%s sslmode=disable",
+    db_user_wal, db_name_wal, db_password_wal, db_host_wal, db_port_wal)
+
+	// Open a connection to the database
+	db, err = sql.Open("postgres", connStrWalla)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// Execute the query and scan the result into the count variable
+	err = db.QueryRow(query).Scan(&porcentaje_variacion)
+	if err != nil {
+		log.Fatal("Failed to execute query: ", err)
+	}
+
+	errorMessage = fmt.Sprintf("El porcentaje de variación de clicks (%.2f) es menor al límite aceptable (%.2f).", porcentaje_variacion, porcentaje_limite_aceptable)
+
+	slack_utils.SendMessage("WALLA " + genericErrorMessage + "\n" + errorMessage, channelID)
+
+	if(porcentaje_variacion < porcentaje_limite_aceptable) { // error
+		result, _ := redis_client.Get("check_avg_db_counts_walla").Result()
+		if result != "error" {
+			redis_client.Set("check_avg_db_counts_walla", "error", 0)
+			slack_utils.SendMessage("WALLA " + genericErrorMessage + "\n" + errorMessage, channelID)
+		}
+	} else { // ok
+		result, _ := redis_client.Get("check_avg_db_counts_walla").Result()
+		if result == "error" {
+			redis_client.Set("check_avg_db_counts_walla", "solved", 0)
+			slack_utils.SendMessage("Walla CheckAvgDbCounts error SOLVED", channelID)
+		}
 	}
 }

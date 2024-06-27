@@ -40,13 +40,13 @@ func finalURLrequest2(url string) string {
 	return ""
 }
 
-func followRedirects(urlStr string) {
+func followRedirects(urlStr string, channelID string) {
     client := &http.Client{
         CheckRedirect: func(req *http.Request, via []*http.Request) error {
             if len(via) >= 10 {
                 return fmt.Errorf("stopped after 10 redirects")
             }
-            fmt.Printf("Redirect: %s\n", req.URL)
+            slack_utils.SendMessage(fmt.Sprintf("Redirect: %s\n", req.URL), channelID)
             return nil
         },
     }
@@ -58,11 +58,11 @@ func followRedirects(urlStr string) {
     }
     defer resp.Body.Close()
 
-    fmt.Printf("Final URL: %s\n", resp.Request.URL)
-    fmt.Printf("Status Code: %d\n", resp.StatusCode)
+    slack_utils.SendMessage(fmt.Sprintf("Final URL: %s\n", resp.Request.URL), channelID)
+	slack_utils.SendMessage(fmt.Sprintf("Status Code: %d\n", resp.StatusCode), channelID)
 }
 
-func followRedirectsProxy(urlStr string) {
+func followRedirectsProxy(urlStr string, channelID string) {
     proxyStr := "http://35.185.196.38:3128"
     proxyURL, err := url.Parse(proxyStr)
     if err != nil {
@@ -78,7 +78,7 @@ func followRedirectsProxy(urlStr string) {
             if len(via) >= 10 {
                 return fmt.Errorf("stopped after 10 redirects")
             }
-            fmt.Printf("Redirect: %s\n", req.URL)
+			slack_utils.SendMessage(fmt.Sprintf("Redirect: %s\n", req.URL), channelID)
             return nil
         },
     }
@@ -90,8 +90,8 @@ func followRedirectsProxy(urlStr string) {
     }
     defer resp.Body.Close()
 
-    fmt.Printf("Final URL: %s\n", resp.Request.URL)
-    fmt.Printf("Status Code: %d\n", resp.StatusCode)
+	slack_utils.SendMessage(fmt.Sprintf("Final URL: %s\n", resp.Request.URL), channelID)
+	slack_utils.SendMessage(fmt.Sprintf("Status Code: %d\n", resp.StatusCode), channelID)
 }
 
 func CheckDiffSource(channelID string) {
@@ -177,11 +177,11 @@ func CheckDiffSource(channelID string) {
 		return
 	}
 
-	fmt.Print(jobsList)
+	slack_utils.SendMessage(fmt.Sprintf("%v", jobsList), channelID)
 	print("\n")
 	
 	// Follow the first link
-	followRedirects(jobsList[0].URL)
+	followRedirects(jobsList[0].URL, channelID)
 
 	time.Sleep(5 * time.Second)
 

@@ -64,7 +64,7 @@ func main() {
 	go workerFetchJobs(5 * time.Minute, channelID)
 	go workerCheckJobsCount(12 * time.Hour, c, channelID)
 	go workerCheckEndpoints(1 * time.Hour, channelID)
-	//go workerCheckDiffSource(3 * time.Hour, channelID)	
+	// go workerCheckDiffSource(3 * time.Hour, channelID)	
 	go workerCheckAvgDbCounts(1 * time.Hour, channelID)
 
 	// Mantener el programa en ejecución indefinidamente

@@ -59,5 +59,5 @@ func SendSlackMessage(messageText string, channelID string) {
 
 func SendMessage(errorMessage string, channelID string) {
 	fmt.Println(errorMessage)
-	//SendSlackMessage(errorMessage, channelID)
+	SendSlackMessage(errorMessage, channelID)
 }
