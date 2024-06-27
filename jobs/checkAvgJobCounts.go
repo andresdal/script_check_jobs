@@ -73,8 +73,6 @@ func CheckAvgDbCounts(channelID string) {
 	genericErrorMessage := "CheckAvgDbCounts error:"
 	errorMessage := fmt.Sprintf("El porcentaje de variación de clicks (%.2f) es menor al límite aceptable (%.2f).", porcentaje_variacion, porcentaje_limite_aceptable)
 
-	slack_utils.SendMessage("HIREABLE " + genericErrorMessage + "\n" + errorMessage, channelID)
-
 	if(porcentaje_variacion < porcentaje_limite_aceptable) { // error
 		result, _ := redis_client.Get("check_avg_db_counts_hir").Result()
 		if result != "error" {
@@ -113,8 +111,6 @@ func CheckAvgDbCounts(channelID string) {
 	}
 
 	errorMessage = fmt.Sprintf("El porcentaje de variación de clicks (%.2f) es menor al límite aceptable (%.2f).", porcentaje_variacion, porcentaje_limite_aceptable)
-
-	slack_utils.SendMessage("WALLA " + genericErrorMessage + "\n" + errorMessage, channelID)
 
 	if(porcentaje_variacion < porcentaje_limite_aceptable) { // error
 		result, _ := redis_client.Get("check_avg_db_counts_walla").Result()
