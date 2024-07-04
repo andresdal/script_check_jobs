@@ -6,123 +6,138 @@ import (
 	"log"
 	"neptune/check_jobs/slack_utils"
 	"os"
-
-	"github.com/go-redis/redis"
+	"time"
 	_ "github.com/lib/pq"
 )
 
+type DbConfig struct {
+	User     string
+	Database string
+	Password string
+	Host     string
+	Port     string
+}
+
 func CheckAvgDbCounts(channelID string) {
-	redis_client := redis.NewClient(&redis.Options{
-        Addr:     "localhost:6379", // Dirección del servidor Redis
-        Password: "",               // Contraseña, si no tienes una, déjala vacía
-        DB:       0,                // Base de datos a usar
-    })
+	hireableConfig := DbConfig{
+		User:     os.Getenv("POSTGRES_USER_HIR"),
+		Database: os.Getenv("POSTGRES_DATABASE_HIR"),
+		Password: os.Getenv("POSTGRES_PASSWORD_HIR"),
+		Host:     os.Getenv("POSTGRES_HOST_HIR"),
+		Port:     os.Getenv("POSTGRES_PORT_HIR"),
+	}
+	wallaConfig := DbConfig{
+		User:     os.Getenv("POSTGRES_USER_WALLA"),
+		Database: os.Getenv("POSTGRES_DATABASE_WALLA"),
+		Password: os.Getenv("POSTGRES_PASSWORD_WALLA"),
+		Host:     os.Getenv("POSTGRES_HOST_WALLA"),
+		Port:     os.Getenv("POSTGRES_PORT_WALLA"),
+	}
+
+	checkDbCounts("HIREABLE", channelID, hireableConfig)
+	checkDbCounts("WALLA", channelID, wallaConfig)
+}
+
+func checkDbCounts(dbName string, channelID string, config DbConfig) {
+	connStr := fmt.Sprintf("user=%s dbname=%s password=%s host=%s port=%s sslmode=disable",
+		config.User, config.Database, config.Password, config.Host, config.Port)
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	error_message := ""
+	generic_error_message := dbName + " CheckAvgDbCounts error:"
+
+	// clickers
+	query_clicks := `
+		WITH tiempo_actual AS (
+			SELECT 
+				(current_time - interval '3 hour') AS hora_fin,
+				(current_time - interval '4 hour') AS hora_inicio
+		),
+		clicks_ultimo_dia AS (
+			SELECT COUNT(*) AS day_before_clicks
+			FROM clickers, tiempo_actual
+			WHERE ts::time BETWEEN tiempo_actual.hora_inicio AND tiempo_actual.hora_fin
+			AND DATE(ts) = current_date - interval '1 day'
+		),
+		clicks_hoy AS (
+			SELECT COUNT(*) AS clicks_hoy
+			FROM clickers, tiempo_actual
+			WHERE ts::time BETWEEN tiempo_actual.hora_inicio AND tiempo_actual.hora_fin
+			AND DATE(ts) = current_date
+		)
+		SELECT 
+			hora_inicio,
+			hora_fin,
+			(clicks_hoy.clicks_hoy::float / clicks_ultimo_dia.day_before_clicks::float * 100) AS porcentaje_variacion
+		FROM clicks_hoy, clicks_ultimo_dia, tiempo_actual;
+	`
+
+	var hora_inicio_clicks, hora_fin_clicks time.Time
+	var porcentaje_variacion_clicks float64
+	var porcentaje_limite_aceptable_clicks float64 = 30.0
+
+	err = db.QueryRow(query_clicks).Scan(&hora_inicio_clicks, &hora_fin_clicks, &porcentaje_variacion_clicks)
+	if err != nil {
+		log.Fatal("Failed to execute query: ", err)
+	}
+
+	hora_inicio_clicks_format := hora_inicio_clicks.Add(-3 * time.Hour).Format("15:04")
+	hora_fin_clicks_format := hora_fin_clicks.Add(-3 * time.Hour).Format("15:04")
+
+	error_message_clicks := fmt.Sprintf("El porcentaje de variación de clicks entre %s y %s = %.2f%%, que es menor al límite aceptable.", hora_inicio_clicks_format, hora_fin_clicks_format, porcentaje_variacion_clicks)
+
+	if porcentaje_variacion_clicks < porcentaje_limite_aceptable_clicks {
+		error_message += error_message_clicks + "\n"
+	}
+
+	// api_job_search
+	query_searchs := `WITH tiempo_actual AS (
+							SELECT 
+								(current_time - interval '3 hour') AS hora_fin,
+								(current_time - interval '4 hour') AS hora_inicio
+						),
+						busquedas_ultimo_dia AS (
+							SELECT COUNT(*) AS day_before_busquedas
+							FROM api_job_searchs, tiempo_actual
+							WHERE created_at::time BETWEEN tiempo_actual.hora_inicio AND tiempo_actual.hora_fin
+							AND DATE(created_at) = current_date - interval '1 day'
+						),
+						busquedas_hoy AS (
+							SELECT COUNT(*) AS busquedas_hoy
+							FROM api_job_searchs, tiempo_actual
+							WHERE created_at::time BETWEEN tiempo_actual.hora_inicio AND tiempo_actual.hora_fin
+							AND DATE(created_at) = current_date
+						)
+						SELECT 
+							hora_inicio::time(0),
+							hora_fin::time(0),
+							(busquedas_hoy.busquedas_hoy::float / busquedas_ultimo_dia.day_before_busquedas::float * 100) AS porcentaje_variacion
+						FROM busquedas_hoy, busquedas_ultimo_dia, tiempo_actual;`
 	
-	// PostgreSQL HIREABLE connection
-	db_user_hir := os.Getenv("POSTGRES_USER_HIR")
-	db_name_hir := os.Getenv("POSTGRES_DATABASE_HIR")
-	db_password_hir := os.Getenv("POSTGRES_PASSWORD_HIR")
-	db_host_hir := os.Getenv("POSTGRES_HOST_HIR")
-	db_port_hir := os.Getenv("POSTGRES_PORT_HIR")
+	var hora_inicio_searchs, hora_fin_searchs time.Time
+	var porcentaje_variacion_searchs float64
+	var porcentaje_limite_aceptable_searchs float64 = 30.0
 
-	connStrHir := "user=" + db_user_hir + " dbname=" + db_name_hir + " password=" + db_password_hir + " host=" + db_host_hir + " port=" + db_port_hir + " sslmode=disable"
-
-	// Open a connection to the database
-	db, err := sql.Open("postgres", connStrHir)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	// Prepare the SQL query string
-	query := 	`WITH tiempo_actual AS (
-					SELECT current_time AS hora_fin,
-						(current_time - interval '1 hour') AS hora_inicio
-				),
-				clicks_ultimos_5_dias AS (
-					SELECT AVG(daily_clicks) AS promedio_clicks_diarios
-					FROM (
-						SELECT DATE(ts) AS fecha, COUNT(*) AS daily_clicks
-						FROM clickers, tiempo_actual
-						WHERE ts::time BETWEEN tiempo_actual.hora_inicio AND tiempo_actual.hora_fin
-						AND DATE(ts) BETWEEN current_date - interval '5 days' AND current_date - interval '1 day'
-						GROUP BY DATE(ts)
-					) AS subquery
-				),
-				clicks_hoy AS (
-					SELECT COUNT(*) AS clicks_hoy
-					FROM clickers, tiempo_actual
-					WHERE ts::time BETWEEN tiempo_actual.hora_inicio AND tiempo_actual.hora_fin
-					AND DATE(ts) = current_date
-				)
-				SELECT 
-					(clicks_hoy.clicks_hoy  / clicks_ultimos_5_dias.promedio_clicks_diarios * 100) AS porcentaje_variacion
-				FROM clicks_hoy, clicks_ultimos_5_dias;
-				`
-
-	// Variable to store the query result
-	var porcentaje_variacion float64 
-	var porcentaje_limite_aceptable float64 = 30.0
-
-	// Execute the query and scan the result into the count variable
-	err = db.QueryRow(query).Scan(&porcentaje_variacion)
+	err = db.QueryRow(query_searchs).Scan(&hora_inicio_searchs, &hora_fin_searchs, &porcentaje_variacion_searchs)
 	if err != nil {
 		log.Fatal("Failed to execute query: ", err)
 	}
 
-	genericErrorMessage := "CheckAvgDbCounts error:"
-	errorMessage := fmt.Sprintf("El porcentaje de variación de clicks (%.2f) es menor al límite aceptable (%.2f).", porcentaje_variacion, porcentaje_limite_aceptable)
+	hora_inicio_searchs_format := hora_inicio_searchs.Add(-3 * time.Hour).Format("15:04")
+	hora_fin_searchs_format := hora_fin_searchs.Add(-3 * time.Hour).Format("15:04")
 
-	if(porcentaje_variacion < porcentaje_limite_aceptable) { // error
-		result, _ := redis_client.Get("check_avg_db_counts_hir").Result()
-		if result != "error" {
-			redis_client.Set("check_avg_db_counts_hir", "error", 0)
-			slack_utils.SendMessage("HIREABLE " + genericErrorMessage + "\n" + errorMessage, channelID)
-		}
-	} else { // ok
-		result, _ := redis_client.Get("check_avg_db_counts_hir").Result()
-		if result == "error" {
-			redis_client.Set("check_avg_db_counts_hir", "solved", 0)
-			slack_utils.SendMessage("Hireable CheckAvgDbCounts error SOLVED", channelID)
-		}
+	error_message_searchs := fmt.Sprintf("El porcentaje de variación de searchs entre %s y %s = %.2f%%, que es menor al límite aceptable.", hora_inicio_searchs_format, hora_fin_searchs_format, porcentaje_variacion_searchs)
+
+	if porcentaje_variacion_searchs < porcentaje_limite_aceptable_searchs {
+		error_message += error_message_searchs
 	}
-
-	// PostgreSQL WALLA connection
-	db_user_wal := os.Getenv("POSTGRES_USER_WALLA")
-	db_name_wal := os.Getenv("POSTGRES_DATABASE_WALLA")
-	db_password_wal := os.Getenv("POSTGRES_PASSWORD_WALLA")
-	db_host_wal := os.Getenv("POSTGRES_HOST_WALLA")
-	db_port_wal := os.Getenv("POSTGRES_PORT_WALLA")
-
-	connStrWalla := fmt.Sprintf("user=%s dbname=%s password=%s host=%s port=%s sslmode=disable",
-    db_user_wal, db_name_wal, db_password_wal, db_host_wal, db_port_wal)
-
-	// Open a connection to the database
-	db, err = sql.Open("postgres", connStrWalla)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	// Execute the query and scan the result into the count variable
-	err = db.QueryRow(query).Scan(&porcentaje_variacion)
-	if err != nil {
-		log.Fatal("Failed to execute query: ", err)
-	}
-
-	errorMessage = fmt.Sprintf("El porcentaje de variación de clicks (%.2f) es menor al límite aceptable (%.2f).", porcentaje_variacion, porcentaje_limite_aceptable)
-
-	if(porcentaje_variacion < porcentaje_limite_aceptable) { // error
-		result, _ := redis_client.Get("check_avg_db_counts_walla").Result()
-		if result != "error" {
-			redis_client.Set("check_avg_db_counts_walla", "error", 0)
-			slack_utils.SendMessage("WALLA " + genericErrorMessage + "\n" + errorMessage, channelID)
-		}
-	} else { // ok
-		result, _ := redis_client.Get("check_avg_db_counts_walla").Result()
-		if result == "error" {
-			redis_client.Set("check_avg_db_counts_walla", "solved", 0)
-			slack_utils.SendMessage("Walla CheckAvgDbCounts error SOLVED", channelID)
-		}
-	}
+	
+	if(error_message != "") {
+		slack_utils.SendMessage(generic_error_message + "\n" + error_message, channelID)
+	} 
 }

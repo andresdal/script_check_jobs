@@ -14,7 +14,7 @@ type SlackMessage struct {
 	Text    string `json:"text"`
 }
 
-func SendSlackMessage(messageText string, channelID string) {
+func sendSlackMessage(messageText string, channelID string) {
 	token := os.Getenv("SLACK_TOKEN")
 	if token == "" {
 		fmt.Println("SLACK_TOKEN environment variable not set")
@@ -59,5 +59,5 @@ func SendSlackMessage(messageText string, channelID string) {
 
 func SendMessage(errorMessage string, channelID string) {
 	fmt.Println(errorMessage)
-	SendSlackMessage(errorMessage, channelID)
+	sendSlackMessage(errorMessage, channelID)
 }
