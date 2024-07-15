@@ -75,7 +75,7 @@ func main() {
 	go workerCheckEndpoints(1 * time.Hour, channelID)
 	// go workerCheckDiffSource(3 * time.Hour, channelID) // deshabilitado
 	go workerCheckAvgDbCounts(1 * time.Hour, channelID)
-	go workerCheckAmountFeeds(1 * time.Hour, channelID)
+	go workerCheckAmountFeeds(4 * time.Hour, channelID)
 
 	// Mantener el programa en ejecución indefinidamente
 	select {}
