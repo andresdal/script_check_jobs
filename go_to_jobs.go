@@ -56,16 +56,26 @@ func workerCheckAvgDbCounts(interval time.Duration, channelID string) {
 	}
 }
 
+func workerCheckAmountFeeds(interval time.Duration, channelID string) {	
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		jobs.CheckAmountFeeds(channelID)
+	}
+}
+
 func main() {
 	loadEnv()
 	c = cache.New(24*time.Hour, 1*time.Hour)
 	channelID := os.Getenv("CHANNEL_ID")
 	
-	go workerFetchJobs(5 * time.Minute, channelID)
+	// go workerFetchJobs(5 * time.Minute, channelID) // deshabilitado para no generar "clicks raros"
 	go workerCheckJobsCount(12 * time.Hour, c, channelID)
 	go workerCheckEndpoints(1 * time.Hour, channelID)
 	// go workerCheckDiffSource(3 * time.Hour, channelID) // deshabilitado
 	go workerCheckAvgDbCounts(1 * time.Hour, channelID)
+	go workerCheckAmountFeeds(1 * time.Hour, channelID)
 
 	// Mantener el programa en ejecución indefinidamente
 	select {}
