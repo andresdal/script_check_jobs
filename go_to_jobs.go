@@ -70,7 +70,7 @@ func main() {
 	c = cache.New(24*time.Hour, 1*time.Hour)
 	channelID := os.Getenv("CHANNEL_ID")
 	
-	// go workerFetchJobs(5 * time.Minute, channelID) // deshabilitado para no generar "clicks raros"
+	go workerFetchJobs(1 * time.Hour, channelID)
 	go workerCheckJobsCount(12 * time.Hour, c, channelID)
 	go workerCheckEndpoints(1 * time.Hour, channelID)
 	// go workerCheckDiffSource(3 * time.Hour, channelID) // deshabilitado
