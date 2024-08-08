@@ -3,8 +3,10 @@ package jobs
 import (
 	"neptune/check_jobs/slack_utils"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+
 	"github.com/go-redis/redis"
 )
 
@@ -19,7 +21,7 @@ func check200(url string) string{
 		return "Link: " + url + "\nError: final response is nil"
 	} else if finalResp.StatusCode != http.StatusOK {
 		defer finalResp.Body.Close()
-
+		slack_utils.SendMessage("Error: Status code " +  strconv.Itoa(finalResp.StatusCode), os.Getenv("CHANNEL_ID"))
 		return "Link: " + url + "\nError NOT OK: Status code " + strconv.Itoa(finalResp.StatusCode)
 	} 
 	return ""

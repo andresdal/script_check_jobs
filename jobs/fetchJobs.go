@@ -41,6 +41,7 @@ func ApiRequest(apiUrl string) ([]byte, string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		slack_utils.SendMessage("Error: Status code " + strconv.Itoa(resp.StatusCode), os.Getenv("CHANNEL_ID"))
 		return nil, "Error: Status code " + strconv.Itoa(resp.StatusCode)
 	}
 
@@ -100,6 +101,7 @@ func finalURLrequest(decodedJobURL DecodedJobURL) string {
 	}
 
 	if finalResp.StatusCode != http.StatusOK {
+		slack_utils.SendMessage("Error: Status code " + strconv.Itoa(finalResp.StatusCode), os.Getenv("CHANNEL_ID"))
 		return "Error following the final link: Status code " + strconv.Itoa(finalResp.StatusCode)
 	}
 

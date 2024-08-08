@@ -162,6 +162,7 @@ func queryOpenSearch(config OpenSearchConfig, feedProvider string) string {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		slack_utils.SendMessage("Error: Status code " + resp.Status, os.Getenv("CHANNEL_ID"))
 		return fmt.Sprintf("Non-OK HTTP status: %s for %s", resp.Status, feedProvider)
 	}
 
